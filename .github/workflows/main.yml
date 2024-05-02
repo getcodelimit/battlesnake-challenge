@@ -1,0 +1,19 @@
+name: 'main'
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout sources'
+        uses: actions/checkout@v
+      - name: 'Run Code Limit'
+        uses: getcodelimit/codelimit-action@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          upload: true

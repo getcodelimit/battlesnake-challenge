@@ -27,14 +27,14 @@ stop_containers() {
 }
 
 build_battlesnake_image() {
-    echo "Building Battlesnake docker image..."
+    echo "Building Battlesnake Server docker image..."
     docker build -q -t battlesnake . >/dev/null
 }
 
 run_battlesnake_container() {
     options=$@
     echo $options
-    echo "Starting Battlesnake docker container..."
+    echo "Starting Battlesnake Server docker container..."
     docker run --name battlesnake -it battlesnake play -v -W 20 -H 20 $options
 }
 
