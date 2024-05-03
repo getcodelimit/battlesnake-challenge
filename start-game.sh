@@ -7,9 +7,9 @@ then
     echo "usage: $0 <language>..."
     echo ""
     echo "languages:"
-    for language in `find . -mindepth 1 -maxdepth 1 -type d | sort`
+    for language in `ls -d */ | sort`
     do
-        echo "  $language" | tr -d '\./'
+        echo "  $language" | tr -d '\/'
     done
     exit 1
 fi
@@ -35,7 +35,7 @@ run_battlesnake_container() {
     options=$@
     echo $options
     echo "Starting Battlesnake Server docker container..."
-    docker run --name battlesnake -it battlesnake play -v -W 20 -H 20 $options
+    docker run --name battlesnake -it battlesnake play -W 20 -H 20 $options
 }
 
 build_language_image() {
