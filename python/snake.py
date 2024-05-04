@@ -2,6 +2,7 @@
 import os
 import json
 import math
+import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -10,9 +11,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if self.path == '/start':
-            handle_game_started(self)
+            handle_start(self)
         elif self.path == '/move': 
             handle_move(self)
+        elif self.path == '/end': 
+            handle_end()
 
 def handle_get_meta_data(request_handler):
     content = json.dumps({
@@ -27,11 +30,15 @@ def handle_get_meta_data(request_handler):
     request_handler.end_headers()
     request_handler.wfile.write(content.encode('utf-8'))
 
-def handle_game_started(request_handler):
+def handle_start(request_handler):
     body = get_body(request_handler)
     game_id = body['game']['id']
     print(f'Game started: {game_id}');
     request_handler.send_response(200)
+    request_handler.end_headers()
+
+def handle_end():
+    request_handler.send_response(201)
     request_handler.end_headers()
 
 def get_body(request_handler):
@@ -85,7 +92,7 @@ def select_direction(board, head, directions):
         if d == 'up' and free_cell(board, head['x'], head['y'] + 1):
             return 'up'
     else:
-        print('Oops')
+        return random.choice(['left', 'right', 'down', 'up'])
 
 def free_cell(board, x, y):
     for s in board['snakes']:
