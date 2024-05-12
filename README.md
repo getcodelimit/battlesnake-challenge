@@ -1,4 +1,4 @@
-# Battlesnake Challange
+# Battlesnake Challenge
 
 ![Logo](logo.png)
 
