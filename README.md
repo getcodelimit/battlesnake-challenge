@@ -1,9 +1,9 @@
-# PL Battlesnake
+# Battlesnake Challange
 
 [![main](https://github.com/getcodelimit/pl-battlesnake/actions/workflows/main.yml/badge.svg)](https://github.com/getcodelimit/pl-battlesnake/actions/workflows/main.yml)
 [![Checked with Code Limit](https://codelimit.vercel.app/api/badge/getcodelimit/pl-battlesnake)](https://github.com/getcodelimit/codelimit)
 
-This repository contains Battlesnake implementations in many programming
+This repository contains Battlesnake implementations in many, many programming
 lannguages.
 
 ## Starting a game
