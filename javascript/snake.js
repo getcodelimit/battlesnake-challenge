@@ -1,12 +1,16 @@
 const http = require('http');
 
 const requestHandler = (req, res) => {
-    if (req.url === '/') {
-        handleGetMetaData(req, res);
-    } else if (req.url === '/start') {
-        handleWithBody(req, res, handleGameStart);
-    } else if (req.url === '/move') {
-        handleWithBody(req, res, handleMove);
+    switch (req.url) {
+        case '/':
+            return handleGetMetaData(req, res);
+        case '/start':
+            return handleWithBody(req, res, handleGameStart);
+        case '/move':
+            return handleWithBody(req, res, handleMove);
+        case '/end':
+            res.writeHead(200);
+            res.end();
     }
 }
 
@@ -35,6 +39,7 @@ const handleWithBody = (req, res, handler) => {
 const handleGameStart = (req, res, body) => {
     console.log(`Game started: ${body.game.id}`);
     res.writeHead(200);
+    res.end();
 }
 
 const handleMove = (req, res, body) => {
@@ -82,14 +87,15 @@ const selectDirection = (board, head, directions) => {
             return 'up'
         }
     }
-    console.log('Oops');
+    return ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)];
 }
 
 const freeCell = (board, c) => {
-    if (board.snakes.flatMap(s => s.body).some(p => equal(c, p))) {
+    if (c.x < 0 || c.y < 0 || c.x >= board.width || c.y >= board.height) {
         return false;
     }
-    return c.x >= 0 && c.y >= 0 && c.x < board.width && c.y < board.height;
+    const occupied = board.snakes.flatMap(s => s.body).some(p => equal(c, p));
+    return !occupied;
 }
 
 const equal = (p1, p2) => p1.x === p2.x && p1.y === p2.y;
