@@ -7,6 +7,50 @@
 
 int PORT = 3000;
 
+char * get_field(const char *json, const char *name) {
+    char *needle = (char *)malloc((strlen(name) + 3) * sizeof(char));
+    sprintf(needle, "\"%s\"", name);
+    char *ptr = strstr(json, needle);
+    if (ptr == NULL) {
+        printf("Pointer is NULL!\n");
+        printf("%s\n", needle);
+        printf("%s\n", json);
+    }
+    ptr += strlen(needle) + 1;
+    free(needle);
+    return ptr;
+}
+
+char * get_object(const char *json, const char *name, char *buffer) {
+    char *ptr = get_field(json, name);
+    int idx = 0, indent = 0;
+    do {
+        if (*ptr == '{')
+            indent++;
+        else if (*ptr == '}')
+            indent--;
+        buffer[idx++] = *ptr++;
+    } while (indent > 0);
+    buffer[idx] = '\0';
+    return buffer;
+}
+
+int get_number(const char *json, const char *name) {
+    char *ptr = get_field(json, name);
+    return (int)strtol(ptr, NULL, 10);
+}
+
+char * get_text(const char *json, const char *name, char *buffer) {
+    char *ptr = get_field(json, name);
+    ptr++;
+    int idx = 0;
+    while (*ptr != '"') {
+        buffer[idx++] = *ptr++;
+    }
+    buffer[idx] = '\0';
+    return buffer;
+}
+
 void handle_get_meta_data(int client_socket) {
     int buffer_size = 32768;
     char *buffer = (char *)malloc(buffer_size * sizeof(char));
@@ -23,12 +67,32 @@ void handle_get_meta_data(int client_socket) {
 }
 
 void handle_start(int client_socket, const char* body) {
+    char *buffer = (char *)malloc(strlen(body) * sizeof(char));
+    char *game = get_object(body, "game", buffer);
+    char *id = get_text(game, "id", buffer);
+    printf("Game started: %s\n", id);
+    free(buffer);
     const char *header = "HTTP/1.1 200 OK\r\n\r\n";
     send(client_socket, header, strlen(header), 0);
 }
 
+void handle_move(int client_socket, const char* body) {
+    int turn = get_number(body, "turn");
+    printf("turn: %d\n", turn);
+    char *buffer = (char *)malloc(strlen(body) * sizeof(char));
+    free(buffer);
+    const char *header = "HTTP/1.1 200 OK\r\n\r\n";
+    send(client_socket, header, strlen(header), 0);
+}
+
+void handle_end(int client_socket) {
+    const char *header = "HTTP/1.1 201 OK\r\n\r\n";
+    send(client_socket, header, strlen(header), 0);
+}
+
 const char *get_body(const char *request) {
-    return strstr(request, "\r\n\r\n") + 4;
+    char *result = strstr(request, "\r\n\r\n") + 4;
+    return result;
 }
 
 int main(int argc, char *argv[]) {
@@ -49,15 +113,19 @@ int main(int argc, char *argv[]) {
             &client_address_len);
         int buffer_size = 32768;
         char *buffer = (char *)malloc(buffer_size * sizeof(char));
-        size_t bytes = recv(client_socket, buffer, buffer_size, 0);
+        size_t bytes = recv(client_socket, buffer, buffer_size, MSG_WAITALL);
         const char *get_meta_data = "GET /";
         const char *post_start = "POST /start";
+        const char *post_move = "POST /move";
+        const char *post_end = "POST /end";
         if (strncmp(buffer, get_meta_data, strlen(get_meta_data)) == 0) {
             handle_get_meta_data(client_socket);
         } else if (strncmp(buffer, post_start, strlen(post_start)) == 0) {
             handle_start(client_socket, get_body(buffer));
-        } else {
-            printf("%s\n", buffer);
+        } else if (strncmp(buffer, post_move, strlen(post_move)) == 0) {
+            handle_move(client_socket, get_body(buffer));
+        } else if (strncmp(buffer, post_end, strlen(post_end)) == 0) {
+            handle_end(client_socket);
         }
         close(client_socket);
     }
