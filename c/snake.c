@@ -90,8 +90,19 @@ void handle_end(int client_socket) {
     send(client_socket, header, strlen(header), 0);
 }
 
-const char *get_body(const char *request) {
-    char *result = strstr(request, "\r\n\r\n") + 4;
+int get_content_length(char *request) {
+    char *ptr = strstr(request, "Content-Length: ") + 16;
+    return (int)strtol(ptr, NULL, 10);
+}
+
+char *get_body(int client_socket, char *buffer, int buffer_size, int bytes) {
+    int content_length = get_content_length(buffer); 
+    char *result = strstr(buffer, "\r\n\r\n") + 4;
+    while (strlen(result) < content_length) {
+        char *ptr = buffer + bytes;
+        bytes += (int)recv(client_socket, ptr, buffer_size - bytes, 0);
+        result = strstr(buffer, "\r\n\r\n") + 4;
+    }
     return result;
 }
 
@@ -113,7 +124,7 @@ int main(int argc, char *argv[]) {
             &client_address_len);
         int buffer_size = 32768;
         char *buffer = (char *)malloc(buffer_size * sizeof(char));
-        size_t bytes = recv(client_socket, buffer, buffer_size, MSG_WAITALL);
+        int bytes = (int)recv(client_socket, buffer, buffer_size, 0);
         const char *get_meta_data = "GET /";
         const char *post_start = "POST /start";
         const char *post_move = "POST /move";
@@ -121,9 +132,11 @@ int main(int argc, char *argv[]) {
         if (strncmp(buffer, get_meta_data, strlen(get_meta_data)) == 0) {
             handle_get_meta_data(client_socket);
         } else if (strncmp(buffer, post_start, strlen(post_start)) == 0) {
-            handle_start(client_socket, get_body(buffer));
+            char *body = get_body(client_socket, buffer, buffer_size, bytes); 
+            handle_start(client_socket, body);
         } else if (strncmp(buffer, post_move, strlen(post_move)) == 0) {
-            handle_move(client_socket, get_body(buffer));
+            char *body = get_body(client_socket, buffer, buffer_size, bytes); 
+            handle_move(client_socket, body);
         } else if (strncmp(buffer, post_end, strlen(post_end)) == 0) {
             handle_end(client_socket);
         }
