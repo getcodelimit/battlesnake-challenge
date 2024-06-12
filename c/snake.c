@@ -35,6 +35,20 @@ char * get_object(const char *json, const char *name, char *buffer) {
     return buffer;
 }
 
+char * get_array(const char *json, const char *name, char *buffer) {
+    char *ptr = get_field(json, name);
+    int idx = 0, indent = 0;
+    do {
+        if (*ptr == '[')
+            indent++;
+        else if (*ptr == ']')
+            indent--;
+        buffer[idx++] = *ptr++;
+    } while (indent > 0);
+    buffer[idx] = '\0';
+    return buffer;
+}
+
 int get_number(const char *json, const char *name) {
     char *ptr = get_field(json, name);
     return (int)strtol(ptr, NULL, 10);
@@ -76,13 +90,46 @@ void handle_start(int client_socket, const char* body) {
     send(client_socket, header, strlen(header), 0);
 }
 
+void preferred_directions(char *board, int head_x, int head_y, int dirs[]) {
+    char *buffer = (char *)malloc(strlen(board) * sizeof(char));
+    char *food = get_array(board, "food", buffer); 
+    printf("%s\n", food);
+    dirs[0] = 0;
+    dirs[1] = 1;
+    dirs[2] = 2;
+    dirs[3] = 3;
+}
+
+char *get_direction(char *board, int head_x, int head_y) {
+    int dirs[4];
+    preferred_directions(board, head_x, head_y, dirs);
+    switch (dirs[0]) {
+        case 0:
+            return "left";
+        case 1:
+            return "up";
+        case 2:
+            return "right";
+        default:
+            return "down";
+    }
+}
+
 void handle_move(int client_socket, const char* body) {
     int turn = get_number(body, "turn");
     printf("turn: %d\n", turn);
     char *buffer = (char *)malloc(strlen(body) * sizeof(char));
+    char *head = get_object(get_object(body, "you", buffer), "head", buffer);
+    int head_x = get_number(head, "x");
+    int head_y = get_number(head, "y");
+    char *board = get_object(body, "board", buffer);
+    char *direction = get_direction(board, head_x, head_y);
+    sprintf(buffer, 
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: application/json\r\n\r\n"
+        "{\"move\": \"%s\"}", direction); 
+    send(client_socket, buffer, strlen(buffer), 0);
     free(buffer);
-    const char *header = "HTTP/1.1 200 OK\r\n\r\n";
-    send(client_socket, header, strlen(header), 0);
 }
 
 void handle_end(int client_socket) {
