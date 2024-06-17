@@ -1,3 +1,4 @@
+#include <math.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,17 +6,17 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int PORT = 3000;
+#define PORT 3000
+
+#define LEFT 0
+#define UP 1
+#define RIGHT 2
+#define DOWN 3
 
 char * get_field(const char *json, const char *name) {
     char *needle = (char *)malloc((strlen(name) + 3) * sizeof(char));
     sprintf(needle, "\"%s\"", name);
     char *ptr = strstr(json, needle);
-    if (ptr == NULL) {
-        printf("Pointer is NULL!\n");
-        printf("%s\n", needle);
-        printf("%s\n", json);
-    }
     ptr += strlen(needle) + 1;
     free(needle);
     return ptr;
@@ -90,29 +91,127 @@ void handle_start(int client_socket, const char* body) {
     send(client_socket, header, strlen(header), 0);
 }
 
+void filter_non_coordinate_digits(char *s) {
+    int digit_is_coordinate = 0;
+    for (int i=0; i<strlen(s); i++) {
+        if (s[i] == 'x') {
+            digit_is_coordinate = 1;
+        }
+        else if (s[i] == '}') {
+            digit_is_coordinate = 0;
+        }
+        else if (digit_is_coordinate && s[i] >= '0' && s[i] <= '9') {
+            continue;
+        }
+        s[i] = ' ';
+    }
+}
+
+void nearest_food(char *food, int head_x, int head_y, int *x, int *y) {
+    filter_non_coordinate_digits(food);
+    double cur_distance = sqrt(pow(head_x - *x, 2) + pow(head_y - *y, 2));
+    char *ptr = food;    
+    char *endptr = NULL;
+    while (1) {
+        int food_x = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            break;
+        } else {
+            ptr = endptr;
+        }
+        int food_y = strtol(ptr, &endptr, 10);
+        ptr = endptr;
+        double distance = sqrt(pow(head_x - food_x, 2) + 
+            pow(head_y - food_y, 2));
+        if (distance < cur_distance) {
+            cur_distance = distance;
+            *x = food_x;
+            *y = food_y;
+        }
+    }
+}
+
 void preferred_directions(char *board, int head_x, int head_y, int dirs[]) {
     char *buffer = (char *)malloc(strlen(board) * sizeof(char));
     char *food = get_array(board, "food", buffer); 
-    printf("%s\n", food);
-    dirs[0] = 0;
-    dirs[1] = 1;
-    dirs[2] = 2;
-    dirs[3] = 3;
+    int food_x = 256;
+    int food_y = 256;
+    nearest_food(food, head_x, head_y, &food_x, &food_y);
+    if (head_x != food_x) {
+        if (head_x < food_x) {
+            dirs[0] = RIGHT;
+            dirs[3] = LEFT;
+        } else {
+            dirs[0] = LEFT;
+            dirs[3] = RIGHT;
+        }
+        dirs[1] = UP;
+        dirs[2] = DOWN;
+    } else {
+        if (head_y < food_y) {
+            dirs[0] = UP;
+            dirs[3] = DOWN;
+        } else {
+            dirs[0] = DOWN;
+            dirs[3] = UP;
+        }
+        dirs[1] = LEFT;
+        dirs[2] = RIGHT;
+    }
+    free(buffer);
+}
+
+int free_cell(char *board, int head_x, int head_y) {
+    int width = get_number(board, "width");
+    int height = get_number(board, "height");
+    char *buffer = (char *)malloc(strlen(board) * sizeof(char));
+    char *snakes = get_array(board, "snakes", buffer);
+    if (head_x < 0 || head_y < 0 || head_x >= width || head_y >= height) {
+        return 0;
+    }
+    filter_non_coordinate_digits(snakes);
+    char *ptr = snakes;
+    char *endptr = NULL;
+    while (1) {
+        int snake_body_x = strtol(ptr, &endptr, 10);
+        if (endptr == ptr) {
+            break;
+        } else {
+            ptr = endptr;
+        }
+        int snake_body_y = strtol(ptr, &endptr, 10);
+        ptr = endptr;
+        if (head_x == snake_body_x && head_y == snake_body_y) {
+            return 0;
+        }
+    }
+    free(buffer);
+    return 1;
+}
+
+char *select_direction(char *board, int head_x, int head_y, int dirs[]) {
+    for (int i = 0; i < 4; i++) {
+        if (dirs[i] == LEFT && free_cell(board, head_x - 1, head_y)) {
+            return "left";
+        }
+        if (dirs[i] == RIGHT && free_cell(board, head_x + 1, head_y)) {
+            return "right";
+        }
+        if (dirs[i] == DOWN && free_cell(board, head_x, head_y - 1)) {
+            return "down";
+        }
+        if (dirs[i] == UP && free_cell(board, head_x, head_y + 1)) {
+            return "up";
+        }
+    }
+    printf("Oops\n");
+    return "left";
 }
 
 char *get_direction(char *board, int head_x, int head_y) {
     int dirs[4];
     preferred_directions(board, head_x, head_y, dirs);
-    switch (dirs[0]) {
-        case 0:
-            return "left";
-        case 1:
-            return "up";
-        case 2:
-            return "right";
-        default:
-            return "down";
-    }
+    return select_direction(board, head_x, head_y, dirs);
 }
 
 void handle_move(int client_socket, const char* body) {
