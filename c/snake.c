@@ -287,5 +287,6 @@ int main(int argc, char *argv[]) {
             handle_end(client_socket);
         }
         close(client_socket);
+        free(buffer);
     }
 }
