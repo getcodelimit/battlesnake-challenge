@@ -74,6 +74,39 @@ public class Snake {
         return buf.toString();
     }
 
+    static String[] getPreferredDirections(String board, int headX, int headY) {
+        return new String[]{"left", "right", "down", "up"};
+    }
+
+    static boolean freeCell(String board, int x, int y) {
+        return true;
+    }
+
+    static String selectDirection(String board, int headX, int headY, 
+            String directions[]) {
+        for (String direction: directions) {
+            if (direction == "left" && freeCell(board, headX - 1, headY)) {
+                return "left";
+            }
+            if (direction == "right" && freeCell(board, headX + 1, headY)) {
+                return "right";
+            }
+            if (direction == "down" && freeCell(board, headX, headY - 1)) {
+                return "down";
+            }
+            if (direction == "up" && freeCell(board, headX, headY + 1)) {
+                return "up";
+            }
+        }
+        System.out.println("Oops");
+        return "left";
+    }
+
+    static String getDirection(String board, int headX, int headY) {
+        String directions[] = getPreferredDirections(board, headX, headY);
+        return selectDirection(board, headX, headY, directions);
+    }
+
     static HttpHandler metaDataHandler = (HttpExchange exchange) -> {
             String response = "{\"apiversion\": \"1\", " +
                 "\"author\": \"'robvanderleek\", \"version\": \"1.0\", " +
@@ -94,12 +127,29 @@ public class Snake {
             exchange.getResponseBody().close();
     };
 
+    static HttpHandler moveHandler = (HttpExchange exchange) -> {
+            String json = getBody(exchange);
+            int turn = getNumber(json, "turn");
+            System.out.println(String.format("Turn: %d", turn));
+            String head = getObject(getObject(json, "you"), "head");
+            int headX = getNumber(head, "x");
+            int headY = getNumber(head, "y");
+            String board = getObject(json, "board");
+            String direction = getDirection(board, headX, headY);
+            String response = String.format("{\"move\": \"%s\"}", direction);
+            exchange.sendResponseHeaders(200, response.length());
+            OutputStream os = exchange.getResponseBody();
+            os.write(response.getBytes());
+            os.close();
+    };
+
     public static void main(String args[]) throws IOException {
         int port = Integer.parseInt(
             System.getenv().getOrDefault("PORT", "3000"));
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", metaDataHandler);
         server.createContext("/start", startHandler);
+        server.createContext("/move", moveHandler);
         server.setExecutor(null);
         server.start();
         System.out.println(
