@@ -7,6 +7,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.StringBuilder;
 import java.net.InetSocketAddress;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
 
 public class Snake {
 
@@ -74,27 +79,97 @@ public class Snake {
         return buf.toString();
     }
 
-    static String[] getPreferredDirections(String board, int headX, int headY) {
-        return new String[]{"left", "right", "down", "up"};
+    static class Coordinate {
+        public final int x;
+        public final int y;
+
+        public Coordinate(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public boolean equals(Object that) {
+            return this.x == ((Coordinate)that).x && 
+                this.y == ((Coordinate)that).y;
+        }
+
+        public final int hashCode() {
+            return this.x + this.y;
+        }
     }
 
-    static boolean freeCell(String board, int x, int y) {
-        return true;
+    static Coordinate nearestFood(String board, Coordinate head) {
+        String foodJson = getArray(board, "food");
+        Set<Coordinate> food = getCoordinates(foodJson);
+        double distance = Double.MAX_VALUE;
+        int x = 255, y = 255;
+        for (Coordinate f: food) {
+            double d = Math.sqrt(Math.pow(head.x - f.x, 2) +
+                    Math.pow(head.y - f.y, 2));
+            if (d < distance) {
+                distance = d;
+                x = f.x;
+                y = f.y;
+            }
+        }
+        return new Coordinate(x, y);
     }
 
-    static String selectDirection(String board, int headX, int headY, 
+    static String[] getPreferredDirections(String board, Coordinate head) {
+        Coordinate food = nearestFood(board, head);
+        if (head.x != food.x) {
+            if (head.x < food.x) {
+                return new String[]{"right", "up", "down", "left"};
+            } else {
+                return new String[]{"left", "up", "down", "right"};
+            }
+        }
+        if (head.y < food.y) {
+            return new String[]{"up", "left", "right", "down"};
+        } else {
+            return new String[]{"down", "left", "right", "up"};
+        }
+    }
+
+    static Set<Coordinate> getCoordinates(String json) {
+        Set<Coordinate> result = new HashSet<Coordinate>();
+        Pattern p = Pattern.compile("[{]\"x\":(\\d+),\"y\":(\\d+)[}]");
+        Matcher m = p.matcher(json);
+        while (m.find()) {
+            result.add(new Coordinate(Integer.parseInt(m.group(1)),
+                Integer.parseInt(m.group(2))));
+        }
+        return result;
+    }
+
+    static boolean freeCell(String board, Coordinate c) {
+        int width = getNumber(board, "width");
+        int height = getNumber(board, "height");
+        if (c.x < 0 || c.y < 0 || c.x >= width || c.y >= height) {
+            return false;
+        }
+        String snakes = getArray(board, "snakes");
+        Set<Coordinate> snakeBodies = getCoordinates(snakes);
+        return !snakeBodies.contains(c);
+    }
+
+    static String selectDirection(String board, Coordinate head, 
             String directions[]) {
         for (String direction: directions) {
-            if (direction == "left" && freeCell(board, headX - 1, headY)) {
+            if (direction == "left" && freeCell(board, 
+                    new Coordinate(head.x - 1, head.y))) {
                 return "left";
             }
-            if (direction == "right" && freeCell(board, headX + 1, headY)) {
+            if (direction == "right" && freeCell(board, 
+                    new Coordinate(head.x + 1, head.y))) {
                 return "right";
             }
-            if (direction == "down" && freeCell(board, headX, headY - 1)) {
+            if (direction == "down" && freeCell(board, 
+                    new Coordinate(head.x, head.y - 1))) {
                 return "down";
             }
-            if (direction == "up" && freeCell(board, headX, headY + 1)) {
+            if (direction == "up" && freeCell(board, 
+                    new Coordinate(head.x, head.y + 1))) {
                 return "up";
             }
         }
@@ -102,9 +177,9 @@ public class Snake {
         return "left";
     }
 
-    static String getDirection(String board, int headX, int headY) {
-        String directions[] = getPreferredDirections(board, headX, headY);
-        return selectDirection(board, headX, headY, directions);
+    static String getDirection(String board, Coordinate head) {
+        String directions[] = getPreferredDirections(board, head);
+        return selectDirection(board, head, directions);
     }
 
     static HttpHandler metaDataHandler = (HttpExchange exchange) -> {
@@ -131,11 +206,11 @@ public class Snake {
             String json = getBody(exchange);
             int turn = getNumber(json, "turn");
             System.out.println(String.format("Turn: %d", turn));
-            String head = getObject(getObject(json, "you"), "head");
-            int headX = getNumber(head, "x");
-            int headY = getNumber(head, "y");
+            String headJson = getObject(getObject(json, "you"), "head");
+            Coordinate head = new Coordinate(getNumber(headJson, "x"),
+                getNumber(headJson, "y"));
             String board = getObject(json, "board");
-            String direction = getDirection(board, headX, headY);
+            String direction = getDirection(board, head);
             String response = String.format("{\"move\": \"%s\"}", direction);
             exchange.sendResponseHeaders(200, response.length());
             OutputStream os = exchange.getResponseBody();
