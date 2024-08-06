@@ -15,12 +15,12 @@ import java.util.regex.Matcher;
 
 public class Snake {
 
-    private static String getField(String json, String name) {
+    private String getField(String json, String name) {
         String needle = '"' + name + '"';
         return json.substring(json.indexOf(needle) + needle.length() + 1);
     }
 
-    private static String getBalanced(String json, String name, char open, 
+    private String getBalanced(String json, String name, char open, 
             char close) {
         String start = getField(json, name);
         int idx = 0, indent = 0;
@@ -35,15 +35,15 @@ public class Snake {
         return start.substring(0, idx);
     }
 
-    private static String getObject(String json, String name) { 
+    private String getObject(String json, String name) { 
         return getBalanced(json, name, '{', '}');
     }
 
-    private static String getArray(String json, String name) { 
+    private String getArray(String json, String name) { 
         return getBalanced(json, name, '[', ']');
     }
 
-    private static int getNumber(String json, String name) {
+    private int getNumber(String json, String name) {
         String start = getField(json, name);
         String numberChars = "";
         int idx = 0;
@@ -54,7 +54,7 @@ public class Snake {
         return Integer.parseInt(numberChars);
     }
 
-    private static String getText(String json, String name) {
+    private String getText(String json, String name) {
         String start = getField(json, name);
         String result = "";
         int idx = 1;
@@ -65,7 +65,7 @@ public class Snake {
         return result;
     }
 
-    private static String getBody(HttpExchange exchange) throws IOException {
+    private String getBody(HttpExchange exchange) throws IOException {
         InputStreamReader isr = 
             new InputStreamReader(exchange.getRequestBody(), "utf-8");
         BufferedReader br = new BufferedReader(isr);
@@ -98,7 +98,18 @@ public class Snake {
         }
     }
 
-    static Coordinate nearestFood(String board, Coordinate head) {
+    private Set<Coordinate> getCoordinates(String json) {
+        Set<Coordinate> result = new HashSet<Coordinate>();
+        Pattern p = Pattern.compile("[{]\"x\":(\\d+),\"y\":(\\d+)[}]");
+        Matcher m = p.matcher(json);
+        while (m.find()) {
+            result.add(new Coordinate(Integer.parseInt(m.group(1)),
+                Integer.parseInt(m.group(2))));
+        }
+        return result;
+    }
+
+    private Coordinate nearestFood(String board, Coordinate head) {
         String foodJson = getArray(board, "food");
         Set<Coordinate> food = getCoordinates(foodJson);
         double distance = Double.MAX_VALUE;
@@ -115,7 +126,7 @@ public class Snake {
         return new Coordinate(x, y);
     }
 
-    static String[] getPreferredDirections(String board, Coordinate head) {
+    private String[] getPreferredDirections(String board, Coordinate head) {
         Coordinate food = nearestFood(board, head);
         if (head.x != food.x) {
             if (head.x < food.x) {
@@ -131,18 +142,7 @@ public class Snake {
         }
     }
 
-    static Set<Coordinate> getCoordinates(String json) {
-        Set<Coordinate> result = new HashSet<Coordinate>();
-        Pattern p = Pattern.compile("[{]\"x\":(\\d+),\"y\":(\\d+)[}]");
-        Matcher m = p.matcher(json);
-        while (m.find()) {
-            result.add(new Coordinate(Integer.parseInt(m.group(1)),
-                Integer.parseInt(m.group(2))));
-        }
-        return result;
-    }
-
-    static boolean freeCell(String board, Coordinate c) {
+    private boolean freeCell(String board, Coordinate c) {
         int width = getNumber(board, "width");
         int height = getNumber(board, "height");
         if (c.x < 0 || c.y < 0 || c.x >= width || c.y >= height) {
@@ -153,7 +153,7 @@ public class Snake {
         return !snakeBodies.contains(c);
     }
 
-    static String selectDirection(String board, Coordinate head, 
+    private String selectDirection(String board, Coordinate head, 
             String directions[]) {
         for (String direction: directions) {
             if (direction == "left" && freeCell(board, 
@@ -177,32 +177,40 @@ public class Snake {
         return "left";
     }
 
-    static String getDirection(String board, Coordinate head) {
+    private String getDirection(String board, Coordinate head) {
         String directions[] = getPreferredDirections(board, head);
         return selectDirection(board, head, directions);
     }
 
-    static HttpHandler metaDataHandler = (HttpExchange exchange) -> {
-            String response = "{\"apiversion\": \"1\", " +
+    private void sendResponse(HttpExchange exchange, int status, String body) 
+            throws IOException {
+            exchange.sendResponseHeaders(status, body.length());
+            OutputStream os = exchange.getResponseBody();
+            os.write(body.getBytes());
+            os.close();
+    }
+
+    private HttpHandler metaDataHandler = (HttpExchange exchange) -> {
+            String metadata = "{\"apiversion\": \"1\", " +
                 "\"author\": \"'robvanderleek\", \"version\": \"1.0\", " +
                 "\"color\": \"#b07219\", \"head\": \"safe\", " +
                 "\"tail\": \"sharp\"}";
-            exchange.sendResponseHeaders(200, response.length());
-            OutputStream os = exchange.getResponseBody();
-            os.write(response.getBytes());
-            os.close();
+            sendResponse(exchange, 200, metadata);
     };
 
-    static HttpHandler startHandler = (HttpExchange exchange) -> {
-            String json = getBody(exchange);
-            String game = getObject(json, "game");
-            String id = getText(game, "id");
+    private HttpHandler startHandler = (HttpExchange exchange) -> {
+            String json = this.getBody(exchange);
+            String game = this.getObject(json, "game");
+            String id = this.getText(game, "id");
             System.out.println(String.format("Game started: %s", id));
-            exchange.sendResponseHeaders(200, 0);
-            exchange.getResponseBody().close();
+            sendResponse(exchange, 200, "");
     };
 
-    static HttpHandler moveHandler = (HttpExchange exchange) -> {
+    private HttpHandler endHandler = (HttpExchange exchange) -> {
+            sendResponse(exchange, 200, "");
+    };
+
+    private HttpHandler moveHandler = (HttpExchange exchange) -> {
             String json = getBody(exchange);
             int turn = getNumber(json, "turn");
             System.out.println(String.format("Turn: %d", turn));
@@ -212,23 +220,25 @@ public class Snake {
             String board = getObject(json, "board");
             String direction = getDirection(board, head);
             String response = String.format("{\"move\": \"%s\"}", direction);
-            exchange.sendResponseHeaders(200, response.length());
-            OutputStream os = exchange.getResponseBody();
-            os.write(response.getBytes());
-            os.close();
+            sendResponse(exchange, 200, response);
     };
 
-    public static void main(String args[]) throws IOException {
-        int port = Integer.parseInt(
-            System.getenv().getOrDefault("PORT", "3000"));
+    private void startServer(int port) throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", metaDataHandler);
         server.createContext("/start", startHandler);
         server.createContext("/move", moveHandler);
+        server.createContext("/end", endHandler);
         server.setExecutor(null);
         server.start();
         System.out.println(
             String.format("Starting Battlesnake server on port: %d", port));
+    }
+
+    public static void main(String args[]) throws IOException {
+        int port = Integer.parseInt(
+            System.getenv().getOrDefault("PORT", "3000"));
+        new Snake().startServer(port);
     }
 
 }
