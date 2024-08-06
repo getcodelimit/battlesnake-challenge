@@ -19,5 +19,6 @@ For example, to launch a snake battle between JavaScript and Python run:
 ## Languages
 
 - [C](c/)
+- [Java](java/)
 - [JavaScript](javascript/)
 - [Python](python/)
