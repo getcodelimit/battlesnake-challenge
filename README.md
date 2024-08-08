@@ -8,12 +8,12 @@
 This repository contains Battlesnake implementations in many, many programming
 lannguages.
 
-## Starting a game
+## Starting a battle
 
 For example, to launch a snake battle between JavaScript and Python run:
 
 ```shell
-./start-game.sh javascript python
+./battle.sh javascript python
 ```
 
 ## Languages
