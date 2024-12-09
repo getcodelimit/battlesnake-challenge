@@ -1,4 +1,5 @@
 name: 'main'
+
 on:
   push:
     branches:
@@ -6,14 +7,13 @@ on:
   pull_request:
     branches:
       - main
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout sources'
         uses: actions/checkout@v4
+
       - name: 'Run Code Limit'
-        uses: getcodelimit/codelimit-action@main
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          upload: true
+        uses: getcodelimit/codelimit-action@v1

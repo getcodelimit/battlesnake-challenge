@@ -3,7 +3,7 @@
 ![Logo](logo.png)
 
 [![main](https://github.com/getcodelimit/pl-battlesnake/actions/workflows/main.yml/badge.svg)](https://github.com/getcodelimit/pl-battlesnake/actions/workflows/main.yml)
-[![Checked with Code Limit](https://codelimit.vercel.app/api/badge/getcodelimit/pl-battlesnake)](https://github.com/getcodelimit/codelimit)
+[![codelimit](https://github.com/getcodelimit/battlesnake-challenge/blob/_codelimit_reports/main/badge.svg?raw=true)](https://github.com/getcodelimit/battlesnake-challenge/blob/_codelimit_reports/main/codelimit.md)
 
 This repository contains Battlesnake implementations in many, many programming
 lannguages.
